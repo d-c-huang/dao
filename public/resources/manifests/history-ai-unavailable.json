@@ -1,0 +1,33 @@
+[
+  {
+    "sourceId": "ai-reasoning",
+    "url": "https://arxiv.org/abs/2005.11401",
+    "title": "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks",
+    "status": "restricted",
+    "license": "arXiv.org perpetual non-exclusive distribution license; no public redistribution license verified",
+    "reason": "arXiv 页面明确采用向 arXiv 授予非独占传播权的许可；NeurIPS 官方说明作者保留版权，向会议授予发布权。未核实到授予公众全文再分发权的版本，因此未把论文全文复制进可分发的项目。原有摘要与原始链接保留。",
+    "evidenceUrls": [
+      "https://arxiv.org/abs/2005.11401",
+      "https://arxiv.org/licenses/nonexclusive-distrib/1.0/",
+      "https://neurips.cc/FAQ/Copyright"
+    ]
+  },
+  {
+    "sourceId": "leibniz-1703",
+    "url": "https://upload.wikimedia.org/wikisource/fr/thumb/6/6c/Leibniz-en.francais-Gerhardt.Math.1a7.djvu/page529-1280px-Leibniz-en.francais-Gerhardt.Math.1a7.djvu.jpg",
+    "title": "Leibniz linked printed scan 529",
+    "status": "unavailable",
+    "license": "Public-domain printed work; linked scan",
+    "asset": true,
+    "reason": "链接的扫描图片未能下载（HTTP 429）；保留原始链接，没有绕过服务限制。法文转录全文已保存。"
+  },
+  {
+    "sourceId": "leibniz-1703",
+    "url": "https://upload.wikimedia.org/wikisource/fr/thumb/6/6c/Leibniz-en.francais-Gerhardt.Math.1a7.djvu/page530-1280px-Leibniz-en.francais-Gerhardt.Math.1a7.djvu.jpg",
+    "title": "Leibniz linked printed scan 530",
+    "status": "unavailable",
+    "license": "Public-domain printed work; linked scan",
+    "asset": true,
+    "reason": "链接的扫描图片未能下载（HTTP 429）；保留原始链接，没有绕过服务限制。法文转录全文已保存。"
+  }
+]

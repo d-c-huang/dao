@@ -1,0 +1,30 @@
+二十八宿三维天球 · 数据署名与改编说明
+
+1. 星官连线
+来源：Stellarium / stellarium-skycultures，chinese/index.json。
+https://github.com/Stellarium/stellarium-skycultures/tree/master/chinese
+贡献者：Karrie Berglund (Digitalis Education Solutions, Inc.)、Sun Shuwei、Stellarium team。
+上游 Chinese description.md 的许可说明："Text and line: CC BY-SA"。
+https://github.com/Stellarium/stellarium-skycultures/blob/master/chinese/description.md
+
+2. 恒星坐标
+来源：David Nash / Astronexus，HYG Stellar Database v4.0。
+https://github.com/astronexus/HYG-Database
+数据：hyg/CURRENT/hygdata_v40.csv.gz。
+上游许可：Creative Commons Attribution-ShareAlike 4.0 International。
+https://github.com/astronexus/HYG-Database/blob/main/LICENSE
+
+3. 本项目的改编
+提取二十八宿同名星官的连线路径及所需160颗恒星；保留HIP编号，
+选取赤经（小时）、赤纬（度）和视星等，添加简体中文宿名、四象分组与原创教学说明。
+归档原始星位以J2000.0为参考。运行时地面视图另用Astronomy Engine进行
+岁差、章动、地球自转与站点地平坐标换算；未加入恒星自行和大气折射。
+天球等半径只表示方向；星点大小为显示编码。连线不是宿界或距星表。
+原始输入SHA-256见star-data.json的provenance字段。
+
+改编数据文件：/resources/calendar/star-data.json
+本改编数据按CC BY-SA 4.0提供：
+https://creativecommons.org/licenses/by-sa/4.0/
+许可法律文本：https://creativecommons.org/licenses/by-sa/4.0/legalcode.zh-hans
+允许复制和改编；请保留署名、来源、许可链接及修改说明，并按同一许可分享改编数据。
+本说明中的数据许可仅适用于该星表与连线改编，不改变项目中其他资料各自的许可。

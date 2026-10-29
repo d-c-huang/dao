@@ -2,3 +2,8 @@ node_modules/
 dist/
 *.tsbuildinfo
 work/
+__pycache__/
+*.pyc
+scripts/*.tmp.csv
+scripts/*.tmp.json
+scripts/*.tmp.md

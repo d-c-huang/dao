@@ -1,0 +1,11 @@
+# Keep authored text consistent on Windows and other platforms.
+* text=auto eol=lf
+
+# Archived originals have byte-level checksums; preserve their exact bytes.
+public/resources/** -text
+
+# Project-generated calendar notes share text with docs/ and src/.
+public/resources/calendar/** text eol=lf
+
+*.pdf -text
+*.zip -text

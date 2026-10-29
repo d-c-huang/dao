@@ -1,0 +1,17 @@
+[
+  {
+    "sourceId": "hypercube",
+    "url": "https://people.eecs.berkeley.edu/~daw/teaching/cs70-f03/Notes/hypercube.pdf",
+    "title": "UC Berkeley CS70 Lecture 6 原始讲义",
+    "reason": "已检查原始 PDF 的课程入口及作者教学目录，未找到明确允许全文重分发的许可。未把网络公开访问等同于重分发授权；已有短引与原创说明保留，另提供 MIT 开放教材作为替代阅读。",
+    "status": "restricted",
+    "license": "No explicit redistribution license located",
+    "checkedUrls": [
+      "https://people.eecs.berkeley.edu/~daw/teaching/cs70-f03/Notes/hypercube.pdf",
+      "https://people.eecs.berkeley.edu/~daw/teaching/cs70-f03/",
+      "https://people.eecs.berkeley.edu/~daw/teaching"
+    ],
+    "alternativePath": "/resources/mathematics/mit6_042js15_textbook.pdf",
+    "checkedAt": "2026-10-29"
+  }
+]
