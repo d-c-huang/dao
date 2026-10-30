@@ -4,40 +4,200 @@ import type {AstronomyMode} from './astronomyMath';
 import type {SceneAction,SceneCommand} from './AstronomyScene';
 import sky from './star-knowledge.json';
 import './astronomy.css';
+
 const Scene=lazy(()=>import('./AstronomyScene'));
 const modes=[{id:'seasons',name:'日地运行'},{id:'moon',name:'地月与月相'},{id:'eclipses',name:'日月食几何'}] as const;
 const cities=[{name:'上海',latitude:31.23,longitude:121.47},{name:'北京',latitude:39.9,longitude:116.4},{name:'广州',latitude:23.13,longitude:113.26},{name:'乌鲁木齐',latitude:43.82,longitude:87.62},{name:'悉尼',latitude:-33.87,longitude:151.21}];
-function initialMansion(time:number){const observed=skySnapshot(time,DEFAULT_SITE),altitudes=new Map(observed.stars.map(s=>[s.hip,s.altitude]));return [...sky.mansions].sort((a,b)=>altitudes.get(b.lines[0][0])!-altitudes.get(a.lines[0][0])!)[0].name}
-function MoonDisk({fraction,longitude}:{fraction:number;longitude:number}){const c=1-2*fraction,waxing=longitude<=180;return <div className="moon-inset"><svg viewBox="0 0 110 110" role="img" aria-label={`地心所见月面照亮${(fraction*100).toFixed(1)}%`}><circle cx="55" cy="55" r="40" fill="#34434b"/><path d={waxing?'M55 15 A40 40 0 0 1 55 95 Z':'M55 15 A40 40 0 0 0 55 95 Z'} fill="#e6dfbd"/><ellipse cx="55" cy="55" rx={40*Math.abs(c)} ry="40" fill={c>=0?'#34434b':'#e6dfbd'}/></svg><span>地心月相 · {(fraction*100).toFixed(1)}%</span></div>}
+
+function initialMansion(time:number){
+  const observed=skySnapshot(time,DEFAULT_SITE);
+  const altitudes=new Map(observed.stars.map(s=>[s.hip,s.altitude]));
+  return [...sky.mansions].sort((a,b)=>altitudes.get(b.lines[0][0])!-altitudes.get(a.lines[0][0])!)[0].name;
+}
+
+function MoonDisk({fraction,longitude}:{fraction:number;longitude:number}){
+  const c=1-2*fraction,waxing=longitude<=180;
+  return (
+    <div className="moon-inset">
+      <svg viewBox="0 0 110 110" role="img" aria-label={`地心所见月面照亮${(fraction*100).toFixed(1)}%`}>
+        <circle cx="55" cy="55" r="40" fill="#34434b"/>
+        <path d={waxing?'M55 15 A40 40 0 0 1 55 95 Z':'M55 15 A40 40 0 0 0 55 95 Z'} fill="#e6dfbd"/>
+        <ellipse cx="55" cy="55" rx={40*Math.abs(c)} ry="40" fill={c>=0?'#34434b':'#e6dfbd'}/>
+      </svg>
+      <span>地心月相 · {(fraction*100).toFixed(1)}%</span>
+    </div>
+  );
+}
+
 export function AstronomyExplorer({stars=false}:{stars?:boolean}){
  const [mode,setMode]=useState<AstronomyMode>(stars?'stars':'seasons'),[time,setTime]=useState(Date.now),[dateDraft,setDateDraft]=useState(()=>beijingInput(Date.now())),[playing,setPlaying]=useState(false),[rate,setRate]=useState(1),[surface,setSurface]=useState(true),[selected,setSelected]=useState(()=>stars?initialMansion(time):'角'),[group,setGroup]=useState(-1),[fov,setFov]=useState(60),[expanded,setExpanded]=useState(false),[error,setError]=useState(''),[showDayStars,setShowDayStars]=useState(false),[site,setSite]=useState<Site>(DEFAULT_SITE),[siteDraft,setSiteDraft]=useState(DEFAULT_SITE),[command,setCommand]=useState<SceneCommand>({serial:0,action:stars?'selected':'overview'});
  const physical=useMemo(()=>physicalSnapshot(time),[time]),observed=useMemo(()=>stars?skySnapshot(time,site):null,[time,site,stars]);
  const mansion=sky.mansions.find(m=>m.name===selected)!,first=sky.stars.find(s=>s.hip===mansion.lines[0][0])!,position=observed?.stars.find(s=>s.hip===first.hip),sun=observed?.bodies.find(s=>s.name==='Sun'),visibleCount=observed?new Set(mansion.lines.flat()).size-[...new Set(mansion.lines.flat())].filter(hip=>observed.stars.find(s=>s.hip===hip)!.altitude<0).length:0;
  const stage=useRef<HTMLElement>(null),dateField=useRef<HTMLInputElement>(null);
+
  function action(action:SceneAction){setCommand(c=>({serial:c.serial+1,action}))}
  function useTime(ms:number){setPlaying(false);if(ms<MIN_TIME||ms>MAX_TIME){setError('日期支持1901—2100年');return;}setTime(ms);setDateDraft(beijingInput(ms));setError('')}
+
  useEffect(()=>{if(!playing)return;let previous=performance.now();const timer=window.setInterval(()=>{const now=performance.now(),elapsed=now-previous;previous=now;setTime(t=>{const next=Math.min(MAX_TIME,t+elapsed*rate);return next;});},200);return()=>clearInterval(timer)},[playing,rate]);
  useEffect(()=>{if(time>=MAX_TIME)setPlaying(false)},[time]);
  useEffect(()=>{if(!expanded)return;const before=document.body.style.overflow;document.body.style.overflow='hidden';const close=(e:KeyboardEvent)=>{if(e.key==='Escape')setExpanded(false)};window.addEventListener('keydown',close);return()=>{document.body.style.overflow=before;window.removeEventListener('keydown',close)}},[expanded]);
+
  function changeMode(id:AstronomyMode){setMode(id);setFov(60);action('overview')}
  function applySite(){try{setSite({...validateSite(siteDraft)});setError('');action('selected')}catch(e){setError((e as Error).message)}}
+
  const title=stars?'站在地球上，抬头看星宿。':'按时间运行的日地月系统';
- return <section ref={stage} className={`astro-study panel${expanded?' astro-expanded':''}`} aria-label={stars?'星宿观测台':'日地月观测台'}>
-  <div className="astro-heading"><div><span className="eyebrow">{stars?'地面观测 / 方位与高度':'星历驱动 / 实际尺寸与距离'}</span><h2>{title}</h2></div><div className="astro-heading-actions">{expanded&&<button onClick={()=>{if(playing)setDateDraft(beijingInput(time));setPlaying(p=>!p)}}>{playing?'暂停运行':'开始运行'}</button>}<button className="astro-expand" aria-expanded={expanded} onClick={()=>setExpanded(e=>!e)}>{expanded?'退出放大（Esc）':'放大查看'}</button></div></div>
-  <div className="observation-time"><label>模拟时间（北京时间 UTC+8）<input ref={dateField} type="datetime-local" step="1" min="1901-01-01T00:00" max="2100-12-31T23:59:59" value={dateDraft} onInput={e=>{setDateDraft(e.currentTarget.value);setPlaying(false)}} onChange={e=>{setDateDraft(e.target.value);setPlaying(false)}}/></label><button onClick={()=>{try{useTime(parseBeijingInput(dateField.current?.value??dateDraft))}catch(e){setError((e as Error).message)}}}>应用时间</button><button onClick={()=>useTime(Date.now())}>使用当前时间</button><label>时间流速<select value={rate} onChange={e=>setRate(Number(e.target.value))}><option value="1">实时 · 1秒/秒</option><option value="3600">1小时/秒</option><option value="86400">1天/秒</option><option value="2592000">30天/秒</option></select></label><button aria-pressed={playing} onClick={()=>{if(playing)setDateDraft(beijingInput(time));setPlaying(p=>!p)}}>{playing?'暂停运行':'开始运行'}</button></div>
-  <p className="observation-clock" aria-live={playing?'off':'polite'}>正在显示：{beijingInput(time).replace('T',' ')}（北京时间） · {playing?`运行中，${rate.toLocaleString()}倍速`:'已暂停'}</p>
-  {error&&<p className="observation-error" role="alert">{error}</p>}
-  {stars?<><div className="knowledge-chips" role="group" aria-label="星宿观察视角"><button className={surface?'active':''} aria-pressed={surface} onClick={()=>{setSurface(true);setFov(60);action('selected')}}>地球上的视角</button><button className={!surface?'active':''} aria-pressed={!surface} onClick={()=>{setSurface(false);setFov(43);action('overview')}}>外部天球总览</button></div>{surface&&<div className="observer-settings"><label>地点预设<select aria-label="观测地点预设" value="" onChange={e=>{const c=cities.find(c=>c.name===e.target.value)!;const next={latitude:c.latitude,longitude:c.longitude,elevation:0};setSiteDraft(next);setSite(next);action('selected')}}><option value="" disabled>选择城市或填写经纬度</option>{cities.map(c=><option key={c.name}>{c.name}</option>)}</select></label><label>纬度（北正南负）<input type="number" min="-90" max="90" step="0.01" value={Number.isNaN(siteDraft.latitude)?'':siteDraft.latitude} onChange={e=>setSiteDraft(s=>({...s,latitude:e.target.value===''?NaN:Number(e.target.value)}))}/></label><label>经度（东正西负）<input type="number" min="-180" max="180" step="0.01" value={Number.isNaN(siteDraft.longitude)?'':siteDraft.longitude} onChange={e=>setSiteDraft(s=>({...s,longitude:e.target.value===''?NaN:Number(e.target.value)}))}/></label><label>海拔（米）<input type="number" min="0" max="9000" value={Number.isNaN(siteDraft.elevation)?'':siteDraft.elevation} onChange={e=>setSiteDraft(s=>({...s,elevation:e.target.value===''?NaN:Number(e.target.value)}))}/></label><button onClick={applySite}>应用地点</button></div>}</>:<div className="knowledge-chips" role="group" aria-label="选择三维天文模型">{modes.map(m=><button key={m.id} aria-pressed={mode===m.id} className={mode===m.id?'active':''} onClick={()=>changeMode(m.id)}>{m.name}</button>)}</div>}
-  <div className="astro-stage"><div className="astro-stamp">{beijingInput(time).replace('T',' ')} · UTC+8{stars&&surface?` · 纬度${site.latitude.toFixed(2)}° / 经度${site.longitude.toFixed(2)}°`:null}</div><Suspense fallback={<div className="astro-loading" role="status">正在加载3D观测窗口…</div>}><Scene mode={mode} physical={physical} sky={observed} site={site} surface={surface} selected={selected} group={group} command={command} fov={fov} onFov={setFov} showDayStars={showDayStars}/></Suspense>{mode==='moon'&&<MoonDisk fraction={physical.phaseFraction} longitude={physical.phaseLongitude}/>}<div className="astro-legend">{stars?<><span className="mint-dot">{surface?'地平线 · 北0° / 东90°':'天赤道'}</span><span>{surface?'几何高度 · 不含折射':'J2000天球 · 方向投影'}</span></>:<><span>同一线性比例：1场景单位＝10,000 km</span><span>文字与轨迹线为定位辅助</span>{mode==='eclipses'&&<span>透明锥为地球本影边界</span>}</>}</div></div>
-  <div className="astro-toolbar" role="group" aria-label="三维视角操作"><button onClick={()=>action('zoomIn')}>放大 ＋</button><button onClick={()=>action('zoomOut')}>缩小 −</button><button onClick={()=>action('overview')}>重置视角</button>{stars?<>{expanded&&<select aria-label="放大窗口选择星宿" value={selected} onChange={e=>{setSelected(e.target.value);setGroup(-1);action('selected')}}>{sky.mansions.map(m=><option key={m.name} value={m.name}>{m.name}宿 · {sky.groups[m.group].name}</option>)}</select>}<button onClick={()=>action('selected')}>定位所选星宿</button>{surface&&<>{(['overview','east','south','west'] as const).map((a,i)=><button key={a} onClick={()=>action(a)}>{['朝北','朝东','朝南','朝西'][i]}</button>)}</>}</>:<><button onClick={()=>action('Sun')}>定位太阳</button><button onClick={()=>action('Earth')}>定位地球</button><button onClick={()=>action('Moon')}>定位月球</button></>}<span>拖动旋转 / 转向 · 滚轮或双指缩放</span></div>
-  {stars?<>
-   {surface&&<><label className="sky-fov">视场角 {fov.toFixed(0)}°（越小越放大）<input aria-label="地面观测视场角" type="range" min="2" max="100" value={fov} onChange={e=>setFov(Number(e.target.value))}/></label><p className="sky-visibility" aria-live={playing?'off':'polite'}>地点：北纬正南纬负 {site.latitude.toFixed(2)}°，东经正西经负 {site.longitude.toFixed(2)}° · 太阳高度 {sun!.altitude.toFixed(1)}°。{sun!.altitude>0?'当前为日间，默认不显示恒星；可开启教学星位标记。':'当前太阳在地平线下；实际可见性仍受暮光、月光、天气与光污染影响。'}</p><label className="day-stars-toggle"><input type="checkbox" checked={showDayStars} onChange={e=>setShowDayStars(e.target.checked)}/>白天仍显示星位标记（教学辅助）</label></>}
-   <div className="knowledge-chips" role="group" aria-label="筛选四象"><button className={group===-1?'active':''} aria-pressed={group===-1} onClick={()=>setGroup(-1)}>全部二十八宿</button>{sky.groups.map((g,i)=><button key={g.name} className={group===i?'active':''} aria-pressed={group===i} onClick={()=>{setGroup(i);setSelected(sky.mansions.find(m=>m.group===i)!.name)}}>{g.name}</button>)}</div>
-   <div className="mansion-layout"><div className="mansion-selector" role="group" aria-label="选择二十八宿">{sky.mansions.filter(m=>group===-1||m.group===group).map(m=><button key={m.name} aria-pressed={selected===m.name} className={selected===m.name?'active':''} onClick={()=>{setSelected(m.name);action('selected')}}><b>{m.name}宿</b><small>{sky.groups[m.group].name}</small></button>)}</div><article className="mansion-reading" aria-live={playing?'off':'polite'}><span className="eyebrow">{sky.groups[mansion.group].name} / 第{sky.mansions.indexOf(mansion)+1}宿</span><h3>{mansion.name}宿 <small>{mansion.english}</small></h3><p>{mansion.meaning}</p>{surface&&<div className="mansion-observation"><b>{visibleCount>0?`${visibleCount}颗连线恒星在地平线上`:'全部连线恒星在地平线下'}</b><p>起点 HIP {first.hip}：方位 {position!.azimuth.toFixed(1)}° / 高度 {position!.altitude.toFixed(1)}°。{position!.altitude<0?'定位时只转向其方位，星点仍被地平线遮挡；可更换时间或地点。':''}</p></div>}<dl><div><dt>星官连线恒星数</dt><dd>{new Set(mansion.lines.flat()).size}颗</dd></div><div><dt>J2000起点赤经 / 赤纬</dt><dd>{first.ra.toFixed(4)}h / {first.dec.toFixed(4)}°</dd></div></dl></article></div>
-   <div className="astro-explanation"><h3>从地面看到的星空会随时间和地点变化</h3><p>地面视角按所填经纬度与时间，将J2000星表经岁差、章动和地球自转换算为方位角与几何高度。地平线下的恒星和连线被隐藏；方位从北向东计量。模型不读取设备定位，上海仅为可修改的初始示例。</p><p>恒星是难以分辨角直径的点光源，点与宿名是辨认标记，不表示恒星真实半径。外部天球为方向投影，同球半径不表示恒星距离。太阳、月亮在地面视图中的角直径按地心位置及站点视差计算，缩放统一改变视场。</p><p>本图只收录160颗星，忽略恒星自行、地形遮挡、大气折射和消光；昼夜背景是简化显示。星官连线不是宿界，不能据此断定日月入宿。四象分组也不是任意时刻的地平线方位。</p></div>
-   <details className="star-catalog"><summary>查看星表、连线、计算来源与许可</summary>{sky.provenance.map(p=><p key={p.title}><a href={p.url} target="_blank" rel="noreferrer">{p.title} ↗</a></p>)}<p><a href="/resources/calendar/star-data.json" download>本地J2000星表与连线</a> · <a href="/licenses/star-data.txt">CC BY-SA署名与改编说明</a></p><p><a href="https://github.com/cosinekitty/astronomy" target="_blank" rel="noreferrer">Astronomy Engine 2.1.19 ↗</a> · <a href="/licenses/astronomy-engine.txt">MIT许可</a></p></details>
-  </>:<><div className="physical-metrics" aria-live={playing?'off':'polite'}><div><small>日地中心距离</small><b>{physical.earthDistanceKm.toLocaleString('zh-CN',{maximumFractionDigits:0})} km</b></div><div><small>地月中心距离</small><b>{physical.moonDistanceKm.toLocaleString('zh-CN',{maximumFractionDigits:0})} km</b></div><div><small>太阳黄经 / 直射纬度</small><b>{physical.solarLongitude.toFixed(2)}° / {physical.solarDeclination.toFixed(2)}°</b></div><div><small>地心月面照亮比例</small><b>{(physical.phaseFraction*100).toFixed(1)}%</b></div></div>
-   <div className="knowledge-chips" role="group" aria-label="跳转天文事件">{([{id:'spring',name:'本年春分'},{id:'summer',name:'本年夏至'},{id:'autumn',name:'本年秋分'},{id:'winter',name:'本年冬至'},{id:'new',name:'下一次朔'},{id:'full',name:'下一次望'}] as const).map(e=><button key={e.id} onClick={()=>{try{useTime(eventTime(time,e.id))}catch(err){setError((err as Error).message)}}}>{e.name}</button>)}</div>
-   <div className="astro-explanation"><h3>尺寸、距离使用同一比例；运动由星历计算</h3><p>采用平均半径：太阳 {BODY_RADII_KM.Sun.toLocaleString()} km、地球 {BODY_RADII_KM.Earth.toLocaleString()} km、月球 {BODY_RADII_KM.Moon.toLocaleString()} km。球体半径与位置均按10,000 km转换为一个场景单位，没有单独放大地球或月球。全景中小天体可能仅占亚像素，请用定位按钮靠近查看。</p><p>Astronomy Engine按时间计算地球日心位置、月球地心位置和地球自转；不再让天体匀速绕圆。地球轨迹为一年日心采样，月轨为地心采样；倍率只改变模拟时间流逝。照明依据太阳方向和有限太阳盘遮挡近似，球体为平均半径，忽略扁率、地形与大气散射。</p><p>{mode==='eclipses'?'日月食页面也使用所选时刻的实际相对位置，不强行对齐三天体。透明锥是几何地球本影边界；着色采用圆形日面遮挡近似，不表示观测色彩，也不代替精密食分、接触时刻或地面可见性计算。':'日地全景与定位近景改变相机距离，尺寸比例保持不变。蓝色经纬网用来观察地球自转和地轴方向，表面颜色仅作识别，不是卫星云图。'}</p><p><a href="https://github.com/cosinekitty/astronomy" target="_blank" rel="noreferrer">星历算法与精度范围 ↗</a> · <a href="https://nssdc.gsfc.nasa.gov/planetary/factsheet/sunfact.html" target="_blank" rel="noreferrer">NASA日地月物理参数 ↗</a> · <a href="/licenses/astronomy-engine.txt">计算库MIT许可</a></p></div></>}
- </section>;
+
+ return (
+  <section ref={stage} className={`astro-study panel${expanded?' astro-expanded':''}`} aria-label={stars?'星宿观测台':'日地月观测台'}>
+    <div className="astro-heading">
+      <div>
+        <span className="eyebrow">{stars?'地面观测 / 方位与高度':'星历驱动 / 三维对比'}</span>
+        <h2>{title}</h2>
+      </div>
+      <div className="astro-heading-actions">
+        {expanded&&<button onClick={()=>{if(playing)setDateDraft(beijingInput(time));setPlaying(p=>!p)}}>{playing?'暂停运行':'开始运行'}</button>}
+        <button className="astro-expand" aria-expanded={expanded} onClick={()=>setExpanded(e=>!e)}>{expanded?'退出放大（Esc）':'放大查看'}</button>
+      </div>
+    </div>
+
+    <div className="observation-time">
+      <label>模拟时间（北京时间 UTC+8）<input ref={dateField} type="datetime-local" step="1" min="1901-01-01T00:00" max="2100-12-31T23:59:59" value={dateDraft} onInput={e=>{setDateDraft(e.currentTarget.value);setPlaying(false)}} onChange={e=>{setDateDraft(e.target.value);setPlaying(false)}}/></label>
+      <button onClick={()=>{try{useTime(parseBeijingInput(dateField.current?.value??dateDraft))}catch(e){setError((e as Error).message)}}}>应用时间</button>
+      <button onClick={()=>useTime(Date.now())}>使用当前时间</button>
+      <label>时间流速
+        <select value={rate} onChange={e=>setRate(Number(e.target.value))}>
+          <option value="1">实时 · 1秒/秒</option>
+          <option value="3600">1小时/秒</option>
+          <option value="86400">1天/秒</option>
+          <option value="2592000">30天/秒</option>
+        </select>
+      </label>
+      <button aria-pressed={playing} onClick={()=>{if(playing)setDateDraft(beijingInput(time));setPlaying(p=>!p)}}>{playing?'暂停运行':'开始运行'}</button>
+    </div>
+
+    <p className="observation-clock" aria-live={playing?'off':'polite'}>正在显示：{beijingInput(time).replace('T',' ')}（北京时间） · {playing?`运行中，${rate.toLocaleString()}倍速`:'已暂停'}</p>
+    {error&&<p className="observation-error" role="alert">{error}</p>}
+
+    {stars ? (
+      <>
+        <div className="knowledge-chips" role="group" aria-label="星宿观察视角">
+          <button className={surface?'active':''} aria-pressed={surface} onClick={()=>{setSurface(true);setFov(60);action('selected')}}>地球上的视角</button>
+          <button className={!surface?'active':''} aria-pressed={!surface} onClick={()=>{setSurface(false);setFov(43);action('overview')}}>外部天球总览</button>
+        </div>
+        {surface&&<div className="observer-settings"><label>地点预设<select aria-label="观测地点预设" value="" onChange={e=>{const c=cities.find(c=>c.name===e.target.value)!;const next={latitude:c.latitude,longitude:c.longitude,elevation:0};setSiteDraft(next);setSite(next);action('selected')}}><option value="" disabled>选择城市或填写经纬度</option>{cities.map(c=><option key={c.name}>{c.name}</option>)}</select></label><label>纬度（北正南负）<input type="number" min="-90" max="90" step="0.01" value={Number.isNaN(siteDraft.latitude)?'':siteDraft.latitude} onChange={e=>setSiteDraft(s=>({...s,latitude:e.target.value===''?NaN:Number(e.target.value)}))}/></label><label>经度（东正西负）<input type="number" min="-180" max="180" step="0.01" value={Number.isNaN(siteDraft.longitude)?'':siteDraft.longitude} onChange={e=>setSiteDraft(s=>({...s,longitude:e.target.value===''?NaN:Number(e.target.value)}))}/></label><label>海拔（米）<input type="number" min="0" max="9000" value={Number.isNaN(siteDraft.elevation)?'':siteDraft.elevation} onChange={e=>setSiteDraft(s=>({...s,elevation:e.target.value===''?NaN:Number(e.target.value)}))}/></label><button onClick={applySite}>应用地点</button></div>}
+      </>
+    ) : (
+      <div className="knowledge-chips" role="group" aria-label="选择三维天文模型">
+        {modes.map(m=><button key={m.id} aria-pressed={mode===m.id} className={mode===m.id?'active':''} onClick={()=>changeMode(m.id)}>{m.name}</button>)}
+      </div>
+    )}
+
+    <div className="astro-stage">
+      <div className="astro-stamp">{beijingInput(time).replace('T',' ')} · UTC+8{stars&&surface?` · 纬度${site.latitude.toFixed(2)}° / 经度${site.longitude.toFixed(2)}°`:null}</div>
+      <Suspense fallback={<div className="astro-loading" role="status">正在加载3D观测窗口…</div>}>
+        <Scene mode={mode} physical={physical} sky={observed} site={site} surface={surface} selected={selected} group={group} command={command} fov={fov} onFov={setFov} showDayStars={showDayStars}/>
+      </Suspense>
+      {mode==='moon'&&<MoonDisk fraction={physical.phaseFraction} longitude={physical.phaseLongitude}/>}
+      <div className="astro-legend">
+        {stars ? (
+          <>
+            <span className="mint-dot">{surface?'地平线 · 北0° / 东90°':'天赤道'}</span>
+            <span>{surface?'几何高度 · 不含折射':'J2000天球 · 方向投影'}</span>
+          </>
+        ) : (
+          <>
+            <span>三维视角：天体与轨道已做美化比例适配</span>
+            <span>文字与轨迹线为定位辅助</span>
+            {mode==='eclipses'&&<span>透明锥为几何地球本影</span>}
+          </>
+        )}
+      </div>
+    </div>
+
+    <div className="astro-toolbar" role="group" aria-label="三维视角操作">
+      <button onClick={()=>action('zoomIn')}>放大 ＋</button>
+      <button onClick={()=>action('zoomOut')}>缩小 −</button>
+      <button onClick={()=>action('overview')}>重置视角</button>
+      {stars ? (
+        <>
+          {expanded&&<select aria-label="放大窗口选择星宿" value={selected} onChange={e=>{setSelected(e.target.value);setGroup(-1);action('selected')}}>{sky.mansions.map(m=><option key={m.name} value={m.name}>{m.name}宿 · {sky.groups[m.group].name}</option>)}</select>}
+          <button onClick={()=>action('selected')}>定位所选星宿</button>
+          {surface&&<>{(['overview','east','south','west'] as const).map((a,i)=><button key={a} onClick={()=>action(a)}>{['朝北','朝东','朝南','朝西'][i]}</button>)}</>}
+        </>
+      ) : (
+        <>
+          <button onClick={()=>action('Sun')}>定位太阳</button>
+          <button onClick={()=>action('Earth')}>定位地球</button>
+          <button onClick={()=>action('Moon')}>定位月球</button>
+        </>
+      )}
+      <span>拖动旋转 / 转向 · 滚轮或双指缩放</span>
+    </div>
+
+    {stars ? (
+      <>
+        {surface&&<><label className="sky-fov">视场角 {fov.toFixed(0)}°（越小越放大）<input aria-label="地面观测视场角" type="range" min="2" max="100" value={fov} onChange={e=>setFov(Number(e.target.value))}/></label><p className="sky-visibility" aria-live={playing?'off':'polite'}>地点：北纬正南纬负 {site.latitude.toFixed(2)}°，东经正西经负 {site.longitude.toFixed(2)}° · 太阳高度 {sun!.altitude.toFixed(1)}°。{sun!.altitude>0?'当前为日间，默认不显示恒星；可开启教学星位标记。':'当前太阳在地平线下；实际可见性仍受暮光、月光、天气与光污染影响。'}</p><label className="day-stars-toggle"><input type="checkbox" checked={showDayStars} onChange={e=>setShowDayStars(e.target.checked)}/>白天仍显示星位标记（教学辅助）</label></>}
+        <div className="knowledge-chips" role="group" aria-label="筛选四象">
+          <button className={group===-1?'active':''} aria-pressed={group===-1} onClick={()=>setGroup(-1)}>全部二十八宿</button>
+          {sky.groups.map((g,i)=><button key={g.name} className={group===i?'active':''} aria-pressed={group===i} onClick={()=>{setGroup(i);setSelected(sky.mansions.find(m=>m.group===i)!.name)}}>{g.name}</button>)}
+        </div>
+        <div className="mansion-layout">
+          <div className="mansion-selector" role="group" aria-label="选择二十八宿">
+            {sky.mansions.filter(m=>group===-1||m.group===group).map(m=><button key={m.name} aria-pressed={selected===m.name} className={selected===m.name?'active':''} onClick={()=>{setSelected(m.name);action('selected')}}><b>{m.name}宿</b><small>{sky.groups[m.group].name}</small></button>)}
+          </div>
+          <article className="mansion-reading" aria-live={playing?'off':'polite'}>
+            <span className="eyebrow">{sky.groups[mansion.group].name} / 第{sky.mansions.indexOf(mansion)+1}宿</span>
+            <h3>{mansion.name}宿 <small>{mansion.english}</small></h3>
+            <p>{mansion.meaning}</p>
+            {surface&&<div className="mansion-observation"><b>{visibleCount>0?`${visibleCount}颗连线恒星在地平线上`:'全部连线恒星在地平线下'}</b><p>起点 HIP {first.hip}：方位 {position!.azimuth.toFixed(1)}° / 高度 {position!.altitude.toFixed(1)}°。{position!.altitude<0?'定位时只转向其方位，星点仍被地平线遮挡；可更换时间或地点。':''}</p></div>}
+            <dl>
+              <div><dt>星官连线恒星数</dt><dd>{new Set(mansion.lines.flat()).size}颗</dd></div>
+              <div><dt>J2000起点赤经 / 赤纬</dt><dd>{first.ra.toFixed(4)}h / {first.dec.toFixed(4)}°</dd></div>
+            </dl>
+          </article>
+        </div>
+        <div className="astro-explanation">
+          <h3>从地面看到的星空会随时间和地点变化</h3>
+          <p>地面视角按所填经纬度与时间，将J2000星表经岁差、章动和地球自转换算为方位角与几何高度。地平线下的恒星和连线被隐藏；方位从北向东计量。模型不读取设备定位，上海仅为可修改的初始示例。</p>
+          <p>恒星是难以分辨角直径的点光源，点与宿名是辨认标记，不表示恒星真实半径。外部天球为方向投影，同球半径不表示恒星距离。太阳、月亮在地面视图中的角直径按地心位置及站点视差计算，缩放统一改变视场。</p>
+          <p>本图只收录160颗星，忽略恒星自行、地形遮挡、大气折射和消光；昼夜背景是简化显示。星官连线不是宿界，不能据此断定日月入宿。四象分组也不是任意时刻的地平线方位。</p>
+        </div>
+        <details className="star-catalog">
+          <summary>查看星表、连线、计算来源与许可</summary>
+          {sky.provenance.map(p=><p key={p.title}><a href={p.url} target="_blank" rel="noreferrer">{p.title} ↗</a></p>)}
+          <p><a href="/resources/calendar/star-data.json" download>本地J2000星表与连线</a> · <a href="/licenses/star-data.txt">CC BY-SA署名与改编说明</a></p>
+          <p><a href="https://github.com/cosinekitty/astronomy" target="_blank" rel="noreferrer">Astronomy Engine 2.1.19 ↗</a> · <a href="/licenses/astronomy-engine.txt">MIT许可</a></p>
+        </details>
+      </>
+    ) : (
+      <>
+        <div className="physical-metrics" aria-live={playing?'off':'polite'}>
+          <div><small>日地中心距离</small><b>{physical.earthDistanceKm.toLocaleString('zh-CN',{maximumFractionDigits:0})} km</b></div>
+          <div><small>地月中心距离</small><b>{physical.moonDistanceKm.toLocaleString('zh-CN',{maximumFractionDigits:0})} km</b></div>
+          <div><small>太阳黄经 / 直射纬度</small><b>{physical.solarLongitude.toFixed(2)}° / {physical.solarDeclination.toFixed(2)}°</b></div>
+          <div><small>地心月面照亮比例</small><b>{(physical.phaseFraction*100).toFixed(1)}%</b></div>
+        </div>
+        <div className="knowledge-chips" role="group" aria-label="跳转天文事件">
+          {(
+            [
+              {id:'spring',name:'本年春分'},
+              {id:'summer',name:'本年夏至'},
+              {id:'autumn',name:'本年秋分'},
+              {id:'winter',name:'本年冬至'},
+              {id:'new',name:'下一次朔'},
+              {id:'full',name:'下一次望'}
+            ] as const
+          ).map(e=><button key={e.id} onClick={()=>{try{useTime(eventTime(time,e.id))}catch(err){setError((err as Error).message)}}}>{e.name}</button>)}
+        </div>
+        <div className="astro-explanation">
+          <h3>高精度星历实时计算，三维视觉美化适配</h3>
+          <p>基于精细星历算得各天体的位置、公转与自转。为使全景与近景观察更加直观清晰，太阳、地球与月球的相对尺寸和视距进行了适当的三维美化放大，方便同时观察地轴倾角、月相变化与食象几何关系。</p>
+          <p>Astronomy Engine按时间计算地球日心位置、月球地心位置和地球自转；不再让天体匀速绕圆。地球轨迹为一年日心采样，月轨为地心采样；倍率只改变模拟时间流逝。照明依据太阳方向和有限太阳盘遮挡近似，球体为平均半径，忽略扁率、地形与大气散射。</p>
+          <p>{mode==='eclipses'?'日月食页面也使用所选时刻的实际相对位置，不强行对齐三天体。透明锥是几何地球本影边界；着色采用圆形日面遮挡近似，不表示观测色彩，也不代替精密食分、接触时刻或地面可见性计算。':'日地全景与定位近景改变相机距离，尺寸比例保持适当放大的美观比例。红色地轴线与蓝色经纬网用来观察地球自转和地轴方向，表面颜色仅作识别，不是卫星云图。'}</p>
+          <p><a href="https://github.com/cosinekitty/astronomy" target="_blank" rel="noreferrer">星历算法与精度范围 ↗</a> · <a href="https://nssdc.gsfc.nasa.gov/planetary/factsheet/sunfact.html" target="_blank" rel="noreferrer">NASA日地月物理参数 ↗</a> · <a href="/licenses/astronomy-engine.txt">计算库MIT许可</a></p>
+        </div>
+      </>
+    )}
+  </section>
+ );
 }
